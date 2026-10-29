@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flashcards</title>
+<style>
+:root{
+  --desk:#2f3e46; --desk-2:#3a4b54; --card:#fbf9f3; --ink:#22262a; --muted:#6b7378;
+  --rule:#bcd3e6; --margin:#d9695f; --ok:#3f8f6b; --again:#c2553f; --btn:#fbf9f3; --btn-ink:#22262a;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --desk:#1b2227; --desk-2:#242e35; --card:#e9e5da; }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--desk);color:#e8ecee;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+header{display:flex;flex-wrap:wrap;gap:.75rem 1rem;align-items:center;padding:.9rem 1.25rem;background:var(--desk-2)}
+header h1{font:600 1.1rem Georgia,"Iowan Old Style",serif;margin:0 auto 0 0;letter-spacing:.01em}
+label.opt{display:flex;align-items:center;gap:.4rem;font-size:.9rem;color:#c9d2d6;cursor:pointer}
+button,.filebtn{font:inherit;font-size:.9rem;padding:.5rem .9rem;border-radius:6px;border:1px solid transparent;background:var(--btn);color:var(--btn-ink);cursor:pointer}
+button.ghost{background:transparent;color:#e8ecee;border-color:#6d7d86}
+button:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid #ffd479;outline-offset:2px}
+input[type=file]{position:absolute;opacity:0;width:1px;height:1px}
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem 1rem;gap:1.25rem;min-height:0}
+
+#drop{width:min(560px,100%);border:2px dashed #7f929c;border-radius:10px;padding:2.5rem 1.5rem;text-align:center}
+#drop.over{border-color:#ffd479;background:rgba(255,212,121,.08)}
+#drop h2{font:600 1.4rem Georgia,serif;margin:0 0 .5rem}
+#drop p{margin:.25rem 0;color:#c9d2d6}
+#drop code{background:rgba(255,255,255,.1);padding:.1rem .35rem;border-radius:4px}
+#msg{color:#ffb4a6;min-height:1.4em;margin:.5rem 0 0}
+
+#study{display:none;width:min(680px,100%);flex-direction:column;align-items:center;gap:1.1rem}
+.status{display:flex;justify-content:space-between;width:100%;font-size:.9rem;color:#c9d2d6}
+.bar{width:100%;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .25s}
+
+.scene{width:100%;perspective:1400px}
+.card{position:relative;width:100%;aspect-ratio:3/2;min-height:230px;border:0;padding:0;background:none;cursor:pointer;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.3,.7,.3,1);color:var(--ink)}
+.card.flipped{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:6px;overflow:auto;
+  display:flex;align-items:center;justify-content:center;padding:1.5rem 2rem 1.5rem 3.5rem;text-align:left;
+  background:
+    linear-gradient(90deg,transparent 2.6rem,var(--margin) 2.6rem,var(--margin) calc(2.6rem + 2px),transparent calc(2.6rem + 2px)),
+    repeating-linear-gradient(transparent 0 1.9rem,var(--rule) 1.9rem calc(1.9rem + 1px)),
+    var(--card);
+  box-shadow:0 10px 28px rgba(0,0,0,.35)}
+.face span{font-family:Georgia,"Iowan Old Style",Palatino,serif;font-size:calc(clamp(1.25rem,3.6vw,1.9rem) * var(--fs,1));line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
+select{font:inherit;font-size:.9rem;padding:.4rem .5rem;border-radius:6px;border:1px solid #6d7d86;background:var(--btn);color:var(--btn-ink)}
+.back{transform:rotateY(180deg)}
+.side{position:absolute;top:.6rem;right:.9rem;font:.75rem system-ui,sans-serif;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.card,.bar i{transition:none}}
+
+.row{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center}
+.row button{min-width:7.5rem}
+#again{background:var(--again);color:#fff}
+#known{background:var(--ok);color:#fff}
+.hint{font-size:.8rem;color:#9fb0b8;text-align:center}
+#done{display:none;text-align:center}
+#done h2{font:600 1.6rem Georgia,serif;margin:0 0 .5rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>Flashcards</h1>
+  <label class="opt"><input type="checkbox" id="hasHeader" checked> First row is a header</label>
+  <label class="opt">Start on
+    <select id="startSide">
+      <option value="r" selected>Random side</option>
+      <option value="a">Column 1</option>
+      <option value="b">Column 2</option>
+    </select>
+  </label>
+  <span class="opt" role="group" aria-label="Font size">
+    <button class="ghost" id="fsDown" aria-label="Smaller text">A−</button>
+    <button class="ghost" id="fsUp" aria-label="Larger text">A+</button>
+  </span>
+  <button class="ghost" id="shuffle" disabled>Shuffle</button>
+  <label class="filebtn" for="file" tabindex="0" id="filelbl">Open CSV</label>
+  <input type="file" id="file" accept=".csv,.tsv,.txt,text/csv">
+</header>
+
+<main>
+  <section id="drop">
+    <h2>Load a deck</h2>
+    <p>Drop a CSV here or use <b>Open CSV</b>.</p>
+    <p>Column 1 is the front of the card, column 2 is the back.</p>
+    <p>Example: <code>Term,Definition</code></p>
+    <p><button class="ghost" id="sample">Try a sample deck</button></p>
+    <p id="msg" role="alert"></p>
+  </section>
+
+  <section id="study" aria-live="polite">
+    <div class="status"><span id="pos"></span><span id="score"></span></div>
+    <div class="bar"><i id="prog"></i></div>
+    <div class="scene">
+      <button class="card" id="card" aria-label="Flashcard. Press to flip.">
+        <div class="face front"><span id="front"></span></div>
+        <div class="face back"><span id="back"></span></div>
+      </button>
+    </div>
+    <div class="row">
+      <button class="ghost" id="prev">Previous</button>
+      <button id="again">Still learning</button>
+      <button id="known">Got it</button>
+      <button class="ghost" id="next">Next</button>
+    </div>
+    <p class="hint">Space flips · ← → move · 1 still learning · 2 got it</p>
+    <div id="done">
+      <h2 id="doneTitle"></h2>
+      <div class="row">
+        <button id="redo">Review missed cards</button>
+        <button class="ghost" id="restart">Start over</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  let rows = [], deck = [], i = 0, flipped = false, marks = {}; // marks: card -> 'known' | 'again'
+
+  // ---- CSV parsing (handles quotes, escaped quotes, newlines in fields, BOM, , ; tab) ----
+  function parseCSV(text){
+    text = text.replace(/^\uFEFF/, '');
+    const first = text.split(/\r?\n/, 1)[0] || '';
+    const counts = {',':0,';':0,'\t':0};
+    let q = false;
+    for (const ch of first){ if (ch === '"') q = !q; else if (!q && ch in counts) counts[ch]++; }
+    const d = Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
+    const out = []; let row = [], cur = '', inQ = false;
+    for (let k = 0; k < text.length; k++){
+      const c = text[k];
+      if (inQ){
+        if (c === '"'){ if (text[k+1] === '"'){ cur += '"'; k++; } else inQ = false; }
+        else cur += c;
+      } else if (c === '"') inQ = true;
+      else if (c === d){ row.push(cur); cur = ''; }
+      else if (c === '\n' || c === '\r'){
+        if (c === '\r' && text[k+1] === '\n') k++;
+        row.push(cur); cur = ''; out.push(row); row = [];
+      } else cur += c;
+    }
+    if (cur !== '' || row.length){ row.push(cur); out.push(row); }
+    return out.filter(r => r.some(v => v.trim() !== ''));
+  }
+
+  function showError(t){ $('msg').textContent = t; }
+
+  function load(text){
+    rows = parseCSV(text);
+    if (!rows.length || rows.every(r => r.length < 2)){
+      showError('No cards found. The file needs at least two columns: front and back.');
+      return;
+    }
+    showError('');
+    build(false);
+  }
+
+  function build(shuffle){
+    let data = rows.slice();
+    if ($('hasHeader').checked) data = data.slice(1);
+    data = data.filter(r => r.length >= 2 && (r[0].trim() || r[1].trim()))
+               .map(r => ({a: r[0].trim(), b: r[1].trim()}));
+    if (!data.length){ showError('No cards found after removing the header row.'); return; }
+    if (shuffle) data = shuffleArr(data);
+    start(data);
+  }
+
+  function shuffleArr(a){
+    for (let k = a.length - 1; k > 0; k--){ const j = Math.floor(Math.random()*(k+1)); [a[k],a[j]] = [a[j],a[k]]; }
+    return a;
+  }
+
+  function start(cards){
+    deck = cards; i = 0; marks = new Map(); flipped = false;
+    $('drop').style.display = 'none';
+    $('study').style.display = 'flex';
+    $('shuffle').disabled = false;
+    $('done').style.display = 'none';
+    render();
+  }
+
+  function startOnBack(){
+    const m = $('startSide').value;
+    return m === 'b' || (m === 'r' && Math.random() < 0.5);
+  }
+
+  function render(){
+    const c = deck[i], f = c.a, b = c.b, card = $('card');
+    $('front').textContent = f; $('back').textContent = b;
+    // Set the side instantly (no animation) so the wrong side never flashes
+    card.style.transition = 'none';
+    flipped = startOnBack();
+    card.classList.toggle('flipped', flipped);
+    void card.offsetWidth;
+    card.style.transition = '';
+    $('pos').textContent = 'Card ' + (i+1) + ' of ' + deck.length;
+    let known = 0, again = 0;
+    marks.forEach(v => v === 'known' ? known++ : again++);
+    $('score').textContent = known + ' known · ' + again + ' still learning';
+    $('prog').style.width = (marks.size / deck.length * 100) + '%';
+    $('prev').disabled = i === 0;
+    $('next').disabled = i === deck.length - 1;
+    $('card').setAttribute('aria-label', 'Flashcard ' + (i+1) + ' of ' + deck.length + '. Front: ' + f + '. Press to flip.');
+  }
+
+  function flip(){
+    flipped = !flipped;
+    $('card').classList.toggle('flipped', flipped);
+  }
+
+  function go(n){ if (n >= 0 && n < deck.length){ i = n; render(); } }
+
+  function mark(v){
+    marks.set(deck[i], v);
+    if (marks.size === deck.length) return finish();
+    // advance to next unmarked card after this one
+    for (let k = 1; k <= deck.length; k++){
+      const n = (i + k) % deck.length;
+      if (!marks.has(deck[n])){ i = n; break; }
+    }
+    render();
+  }
+
+  function finish(){
+    let known = 0, missed = [];
+    deck.forEach(c => marks.get(c) === 'known' ? known++ : missed.push(c));
+    $('prog').style.width = '100%';
+    $('doneTitle').textContent = known + ' of ' + deck.length + ' cards marked as known';
+    $('redo').style.display = missed.length ? '' : 'none';
+    $('redo').onclick = () => start(missed);
+    $('done').style.display = 'block';
+    $('score').textContent = known + ' known · ' + missed.length + ' still learning';
+  }
+
+  // ---- events ----
+  $('card').onclick = flip;
+  $('prev').onclick = () => go(i-1);
+  $('next').onclick = () => go(i+1);
+  $('known').onclick = () => mark('known');
+  $('again').onclick = () => mark('again');
+  $('shuffle').onclick = () => build(true);
+  $('restart').onclick = () => start(deck.slice());
+  $('hasHeader').onchange = () => { if (rows.length) build(false); };
+  $('startSide').onchange = () => { if (deck.length) render(); };
+
+  let fs = 1;
+  try { fs = parseFloat(localStorage.getItem('fcFontScale')) || 1; } catch(e){}
+  function setFs(v){
+    fs = Math.min(2.5, Math.max(0.6, Math.round(v * 10) / 10));
+    document.documentElement.style.setProperty('--fs', fs);
+    try { localStorage.setItem('fcFontScale', fs); } catch(e){}
+  }
+  setFs(fs);
+  $('fsDown').onclick = () => setFs(fs - 0.1);
+  $('fsUp').onclick = () => setFs(fs + 0.1);
+  $('file').onchange = e => readFile(e.target.files[0]);
+  $('filelbl').onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); $('file').click(); } };
+
+  function readFile(f){
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => load(r.result);
+    r.onerror = () => showError('Could not read that file.');
+    r.readAsText(f);
+    $('file').value = '';
+  }
+
+  ['dragover','dragenter'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); $('drop').classList.remove('over'); }));
+  document.addEventListener('drop', e => readFile(e.dataTransfer.files[0]));
+
+  document.addEventListener('keydown', e => {
+    if (!deck.length || e.target.tagName === 'INPUT') return;
+    if (e.key === ' ' ){ e.preventDefault(); flip(); }
+    else if (e.key === 'ArrowRight') go(i+1);
+    else if (e.key === 'ArrowLeft') go(i-1);
+    else if (e.key === '1') mark('again');
+    else if (e.key === '2') mark('known');
+  });
+
+  $('sample').onclick = () => load(
+    'Term,Definition\n' +
+    'Photosynthesis,"Process plants use to turn light, water and CO2 into sugar and oxygen"\n' +
+    'Mitochondria,The organelle that produces most of a cell\'s ATP\n' +
+    'Osmosis,Movement of water across a membrane toward higher solute concentration\n' +
+    'Enzyme,A protein that speeds up a chemical reaction\n' +
+    'Ribosome,Cell structure that builds proteins from amino acids'
+  );
+})();
+</script>
+</body>
+</html>
