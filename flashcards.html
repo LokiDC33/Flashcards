@@ -37,6 +37,8 @@ main{flex:1;display:flex;flex-direction:column;align-items:center;justify-conten
 .bar{width:100%;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden}
 .bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .25s}
 
+.banner{display:flex;flex-wrap:wrap;justify-content:center;gap:.35rem 1.1rem;width:100%;padding:.55rem .9rem;border-radius:6px;background:var(--desk-2);border:1px solid #55666f;font:600 1rem/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#f1ead2;letter-spacing:.02em}
+.banner span{white-space:nowrap}
 .scene{width:100%;perspective:1400px}
 .card{position:relative;width:100%;aspect-ratio:3/2;min-height:230px;border:0;padding:0;background:none;cursor:pointer;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.3,.7,.3,1);color:var(--ink)}
 .card.flipped{transform:rotateY(180deg)}
@@ -95,6 +97,9 @@ select{font:inherit;font-size:.9rem;padding:.4rem .5rem;border-radius:6px;border
   <section id="study" aria-live="polite">
     <div class="status"><span id="pos"></span><span id="score"></span></div>
     <div class="bar"><i id="prog"></i></div>
+    <div class="banner" aria-label="Number key">
+      <span>1=A</span><span>2=B</span><span>3=C</span><span>4=D</span><span>5=E</span><span>6=S</span><span>7=G or J</span><span>8=H</span><span>9=N</span><span>0=O</span>
+    </div>
     <div class="scene">
       <button class="card" id="card" aria-label="Flashcard. Press to flip.">
         <div class="face front"><span id="front"></span></div>
